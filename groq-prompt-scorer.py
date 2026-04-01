@@ -12,7 +12,6 @@ import datetime
 import json
 import os
 import re
-import subprocess
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -24,8 +23,7 @@ MINIMUM_PROMPT_LENGTH = 0
 RATE_LIMIT_WARNING_THRESHOLD_PERCENTAGE = 20
 MAXIMUM_CONVERSATION_EXCHANGES = 5
 MAXIMUM_RESPONSE_PREVIEW_LENGTH = 500
-NOTIFICATION_DISPLAY_SECONDS = 3
-SUBPROCESS_NO_WINDOW_FLAG = 0x08000000
+GROQ_STATUS_BRIDGE_FILE = Path.home() / ".claude" / "cache" / "groq-status.json"
 
 AFFIRMATION_PATTERNS = frozenset({
     "yes", "yeah", "yep", "yup", "ok", "okay", "sure", "go ahead",
@@ -63,6 +61,7 @@ These prompt types are ALWAYS clear regardless of how terse they are:
 - Requests for links, docs, or information: "link me to the source", "show me the docs"
 - Instructions about the current tool or session: "remove that limit", "keep that", "change the config"
 - Follow-ups referencing established conversation context: "do the same for the other one", "fix that too"
+- Continuation requests in an active workflow: "what's next?", "what do I do now?", "okay done, now what?"
 - Bug reports describing specific behavior: "every time X happens, Y occurs"
 </always_pass>
 
@@ -93,7 +92,13 @@ When verdict is "pass":
 {"reasoning": "one sentence explaining why the prompt is clear", "verdict": "pass"}
 
 When verdict is "guide":
-{"reasoning": "one sentence explaining what is missing", "verdict": "guide", "gaps": ["1-3 short strings naming what is missing"]}
+{"reasoning": "one sentence explaining what is missing", "verdict": "guide", "gaps": ["1-3 short strings naming what is missing"], "interpretations": [{"intent": "what the user likely means", "improved_prompt": "a specific actionable rewrite"}, {"intent": "alternative reading", "improved_prompt": "another specific rewrite"}]}
+
+Rules for interpretations:
+- Generate 2-3 interpretations, each a plausible reading of the user's intent
+- Each improved_prompt must be concrete: include file paths, specific actions, and success criteria where possible
+- If conversation context exists, use it to ground interpretations in actual files and topics discussed
+- improved_prompt should follow best practices: specific target, clear action, defined scope
 </output_format>
 
 <examples>
@@ -127,21 +132,30 @@ When verdict is "guide":
 
 <example>
 <recent_conversation>
+[User]: I need to set up GA4 tracking on the production site
+[Assistant]: Here are the steps: 1) Set GA4_MEASUREMENT_ID in Cloud Run env vars 2) Deploy a new revision 3) Verify in GA Realtime. Let me know once step 1 is done.
+</recent_conversation>
+<prompt_to_classify>okay, the ID is set and deployed. what's next?</prompt_to_classify>
+{"reasoning": "Continuation request in an active step-by-step workflow. Context establishes the process and current position.", "verdict": "pass"}
+</example>
+
+<example>
+<recent_conversation>
 [User]: I want to add some features to the app
 [Assistant]: What features are you thinking about?
 </recent_conversation>
 <prompt_to_classify>authentication and maybe a dashboard</prompt_to_classify>
-{"reasoning": "Two broad features with no file scope or implementation approach. Context does not narrow the scope.", "verdict": "guide", "gaps": ["no file scope for either feature", "no implementation approach", "two unrelated features in one request"]}
+{"reasoning": "Two broad features with no file scope or implementation approach. Context does not narrow the scope.", "verdict": "guide", "gaps": ["no file scope for either feature", "no implementation approach", "two unrelated features in one request"], "interpretations": [{"intent": "Add login/logout to the existing app", "improved_prompt": "Add session-based authentication: login and logout routes, password hashing, and middleware to protect authenticated pages"}, {"intent": "Build a dashboard page behind auth", "improved_prompt": "Create a protected /dashboard route that requires login, showing recent activity stats using the existing user model"}]}
 </example>
 
 <example>
 <prompt_to_classify>build me a full stack app</prompt_to_classify>
-{"reasoning": "No stack, no features, no starting state, no context.", "verdict": "guide", "gaps": ["no stack specified", "no feature scope", "no starting state"]}
+{"reasoning": "No stack, no features, no starting state, no context.", "verdict": "guide", "gaps": ["no stack specified", "no feature scope", "no starting state"], "interpretations": [{"intent": "Scaffold a React + Express project", "improved_prompt": "Scaffold a React frontend with Vite and an Express backend API with project structure, dev scripts, and a health-check endpoint"}, {"intent": "Create a Next.js full-stack app", "improved_prompt": "Create a Next.js App Router project with a PostgreSQL database, Prisma ORM, and a basic CRUD API for [resource]"}]}
 </example>
 
 <example>
 <prompt_to_classify>improve the code</prompt_to_classify>
-{"reasoning": "No target file, no success criteria, no context to narrow scope.", "verdict": "guide", "gaps": ["no target file", "no success criteria", "no specific improvement"]}
+{"reasoning": "No target file, no success criteria, no context to narrow scope.", "verdict": "guide", "gaps": ["no target file", "no success criteria", "no specific improvement"], "interpretations": [{"intent": "Refactor a specific module for readability", "improved_prompt": "Refactor [filename] to extract repeated logic into helper functions and improve variable naming"}, {"intent": "Optimize performance in a hot path", "improved_prompt": "Profile and optimize the slowest function in [module] by reducing unnecessary allocations and database queries"}]}
 </example>
 </examples>
 
@@ -150,6 +164,7 @@ When verdict is "guide":
 - A prompt with a file path and action is ALWAYS clear, even if terse.
 - When conversation context is provided, use it to resolve ambiguity BEFORE considering GUIDE.
 - Only flag as GUIDE when a prompt is genuinely unactionable -- if you can imagine a reasonable interpretation given context, PASS it.
+- If the conversation establishes an active workflow or step-by-step process, any prompt requesting the next step is ALWAYS clear.
 - When in doubt, PASS.
 </constraints>"""
 
@@ -290,26 +305,25 @@ def check_rate_limit_warning(rate_limits: dict[str, int]) -> str:
     return "; ".join(warnings)
 
 
-def show_usage_notification(title: str, message: str) -> None:
+def write_groq_status_bridge(result: dict) -> None:
+    import time
+
     try:
-        escaped_title = title.replace("'", "''")
-        escaped_message = message.replace("'", "''")
-        sleep_seconds = NOTIFICATION_DISPLAY_SECONDS + 1
-        powershell_script = (
-            "Add-Type -AssemblyName System.Windows.Forms;"
-            "$notification = New-Object System.Windows.Forms.NotifyIcon;"
-            "$notification.Icon = [System.Drawing.SystemIcons]::Information;"
-            "$notification.Visible = $true;"
-            f"$notification.ShowBalloonTip({NOTIFICATION_DISPLAY_SECONDS * 1000}, '{escaped_title}', '{escaped_message}', 'Info');"
-            f"Start-Sleep {sleep_seconds};"
-            "$notification.Dispose()"
-        )
-        subprocess.Popen(
-            ["powershell", "-WindowStyle", "Hidden", "-Command", powershell_script],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            creationflags=SUBPROCESS_NO_WINDOW_FLAG,
-        )
+        status = {
+            "timestamp": time.time(),
+            "verdict": result.get("verdict", "unknown"),
+            "latency_milliseconds": result.get("_latency_milliseconds", 0),
+            "total_tokens": result.get("_token_usage", {}).get("total_tokens", 0),
+            "remaining_tokens": result.get("_rate_limits", {}).get("remaining_tokens"),
+            "limit_tokens": result.get("_rate_limits", {}).get("limit_tokens"),
+            "remaining_requests": result.get("_rate_limits", {}).get("remaining_requests"),
+            "limit_requests": result.get("_rate_limits", {}).get("limit_requests"),
+            "model": result.get("_model", "unknown"),
+            "warning": result.get("_rate_limit_warning", ""),
+        }
+        temporary_path = GROQ_STATUS_BRIDGE_FILE.with_suffix(".tmp")
+        temporary_path.write_text(json.dumps(status))
+        temporary_path.replace(GROQ_STATUS_BRIDGE_FILE)
     except OSError:
         pass
 
@@ -410,8 +424,9 @@ def log_classification(prompt: str, result: dict, context_exchange_count: int, c
 def format_guidance(result: dict) -> str:
     reasoning = result.get("reasoning", "")
     gaps = result.get("gaps", [])
+    interpretations = result.get("interpretations", [])
 
-    lines = ["Prompt blocked: too vague to execute."]
+    lines = ["Prompt needs refinement before proceeding."]
     if reasoning:
         lines.append(f"Reason: {reasoning}")
     lines.append("")
@@ -419,6 +434,21 @@ def format_guidance(result: dict) -> str:
         lines.append("Missing:")
         for gap in gaps:
             lines.append(f"  - {gap}")
+        lines.append("")
+    if interpretations:
+        lines.append("Did you mean one of these?")
+        for index, interpretation in enumerate(interpretations, 1):
+            intent = interpretation.get("intent", "")
+            improved_prompt = interpretation.get("improved_prompt", "")
+            if improved_prompt:
+                label = f"  {index}. "
+                if intent:
+                    label += f"[{intent}]: "
+                lines.append(f"{label}\"{improved_prompt}\"")
+        lines.append("")
+        lines.append("Copy one above or refine your prompt and resubmit.")
+    elif gaps:
+        lines.append("Add the missing details and resubmit.")
     return "\n".join(lines)
 
 
@@ -492,14 +522,9 @@ def main() -> None:
     remaining_tokens = rate_limits.get("remaining_tokens")
     limit_tokens = rate_limits.get("limit_tokens")
 
-    notification_line = f"Pass ({latency}ms, {total_tokens} tok)"
-    if remaining_tokens is not None and limit_tokens:
-        notification_line += f" | Quota: {remaining_tokens:,}/{limit_tokens:,}"
-    if rate_limit_warning:
-        notification_line += f" | {rate_limit_warning}"
+    write_groq_status_bridge(result)
 
     if result.get("verdict") != "guide":
-        show_usage_notification("Groq Prompt Scorer", notification_line)
         status_line = f"Prompt clarity: pass ({latency}ms, {total_tokens} tokens)"
         if remaining_tokens is not None and limit_tokens:
             status_line += f" -- Groq quota: {remaining_tokens:,}/{limit_tokens:,} tokens remaining"
@@ -507,11 +532,6 @@ def main() -> None:
             status_line += f" -- {rate_limit_warning}"
         print(status_line)
         sys.exit(0)
-
-    blocked_notification = f"BLOCKED ({latency}ms, {total_tokens} tok)"
-    if remaining_tokens is not None and limit_tokens:
-        blocked_notification += f" | Quota: {remaining_tokens:,}/{limit_tokens:,}"
-    show_usage_notification("Groq Prompt Scorer", blocked_notification)
 
     editor = detect_editor(input_data)
     guidance = format_guidance(result)
