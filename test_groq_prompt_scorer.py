@@ -22,29 +22,44 @@ should_bypass = groq_prompt_scorer.should_bypass
 
 class TestShouldBypass:
     def test_empty_prompt_bypasses(self) -> None:
-        assert should_bypass("") is True
+        assert should_bypass("") == "empty"
 
-    def test_short_prompt_bypasses(self) -> None:
-        assert should_bypass("fix it") is True
+    def test_single_word_bypasses(self) -> None:
+        assert should_bypass("yes") == "single_word"
+        assert should_bypass("ok") == "single_word"
+        assert should_bypass("thanks") == "single_word"
 
-    def test_prompt_at_minimum_length_does_not_bypass(self) -> None:
-        prompt = "x" * MINIMUM_PROMPT_LENGTH
-        assert should_bypass(prompt) is False
+    def test_two_word_prompt_does_not_bypass(self) -> None:
+        assert should_bypass("fix it") == ""
+        assert should_bypass("build something") == ""
 
     def test_asterisk_prefix_bypasses(self) -> None:
-        assert should_bypass("* do whatever you want with auth") is True
+        assert should_bypass("* do whatever you want with auth") == "prefix"
 
     def test_slash_prefix_bypasses(self) -> None:
-        assert should_bypass("/commit this change now") is True
+        assert should_bypass("/commit this change now") == "prefix"
 
     def test_hash_prefix_bypasses(self) -> None:
-        assert should_bypass("# this is a comment") is True
+        assert should_bypass("# this is a comment") == "prefix"
 
     def test_specific_prompt_does_not_bypass(self) -> None:
-        assert should_bypass("fix the TypeError in src/auth.ts line 42") is False
+        assert should_bypass("fix the TypeError in src/auth.ts line 42") == ""
 
     def test_whitespace_only_bypasses(self) -> None:
-        assert should_bypass("        ") is True
+        assert should_bypass("        ") == "empty"
+
+    def test_affirmation_bypasses(self) -> None:
+        assert should_bypass("go ahead") == "affirmation"
+        assert should_bypass("sounds good") == "affirmation"
+
+    def test_question_with_command_does_not_bypass(self) -> None:
+        assert should_bypass("is our local main updated? if not, update it to be synced") == ""
+
+    def test_pure_question_does_not_bypass(self) -> None:
+        assert should_bypass("how does the auth middleware work?") == ""
+
+    def test_question_starter_does_not_bypass(self) -> None:
+        assert should_bypass("can you fix the bug in auth.ts?") == ""
 
 
 class TestFormatGuidance:
@@ -55,11 +70,13 @@ class TestFormatGuidance:
             "suggestion": "Specify which file and what 'done' looks like.",
         }
         output = format_guidance(result)
-        assert "PROMPT IMPROVEMENT SUGGESTION" in output
+        assert "BLOCKED" in output
+        assert "DO NOT proceed" in output
         assert "no file path specified" in output
         assert "no success criteria" in output
+        assert "Example of a clearer prompt:" in output
         assert "Specify which file" in output
-        assert "Ask the user clarifying questions" in output
+        assert "ONLY clarifying questions" in output
 
     def test_formats_without_gaps(self) -> None:
         result = {
@@ -68,7 +85,7 @@ class TestFormatGuidance:
             "suggestion": "Be more specific.",
         }
         output = format_guidance(result)
-        assert "Missing:" not in output
+        assert "MUST be resolved" not in output
         assert "Be more specific." in output
 
     def test_formats_without_suggestion(self) -> None:
@@ -79,7 +96,7 @@ class TestFormatGuidance:
         }
         output = format_guidance(result)
         assert "too vague" in output
-        assert "Consider:" not in output
+        assert "Example of a clearer prompt:" not in output
 
 
 class TestClassifyPrompt:
@@ -225,9 +242,143 @@ class TestLogClassification:
         log_classification("test", {"verdict": "pass"}, bad_path)
 
 
+class TestLogDebug:
+    def test_writes_stage_and_detail_to_debug_log(self, tmp_path: Path) -> None:
+        debug_log = tmp_path / "debug.log"
+        with patch.object(groq_prompt_scorer, "DEBUG_LOG_FILE", debug_log):
+            groq_prompt_scorer.log_debug("entry", "stdin received")
+        content = debug_log.read_text()
+        assert "entry" in content
+        assert "stdin received" in content
+
+    def test_appends_to_existing_debug_log(self, tmp_path: Path) -> None:
+        debug_log = tmp_path / "debug.log"
+        debug_log.write_text("previous\n")
+        with patch.object(groq_prompt_scorer, "DEBUG_LOG_FILE", debug_log):
+            groq_prompt_scorer.log_debug("second_call", "more data")
+        content = debug_log.read_text()
+        assert "previous" in content
+        assert "second_call" in content
+
+    def test_survives_unwritable_path(self) -> None:
+        bad_path = Path("/nonexistent/dir/debug.log")
+        with patch.object(groq_prompt_scorer, "DEBUG_LOG_FILE", bad_path):
+            groq_prompt_scorer.log_debug("fail_test", "should not crash")
+
+
+class TestDetectEditor:
+    def test_returns_cursor_when_conversation_id_present(self) -> None:
+        payload = {"conversation_id": "abc-123", "prompt": "hello"}
+        assert groq_prompt_scorer.detect_editor(payload) == "cursor"
+
+    def test_returns_claude_code_when_session_id_present(self) -> None:
+        payload = {"session_id": "abc-123", "prompt": "hello"}
+        assert groq_prompt_scorer.detect_editor(payload) == "claude_code"
+
+    def test_returns_claude_code_as_default(self) -> None:
+        payload = {"prompt": "hello"}
+        assert groq_prompt_scorer.detect_editor(payload) == "claude_code"
+
+
+class TestFormatBlockResponse:
+    def test_claude_code_format(self) -> None:
+        guidance = "Prompt blocked: too vague."
+        response = groq_prompt_scorer.format_block_response("claude_code", guidance)
+        assert response == {"decision": "block", "reason": guidance}
+
+    def test_cursor_format(self) -> None:
+        guidance = "Prompt blocked: too vague."
+        response = groq_prompt_scorer.format_block_response("cursor", guidance)
+        assert response == {"continue": False, "user_message": guidance}
+
+
 class TestMainFlow:
     def test_exits_silently_without_api_key(self) -> None:
         with patch.dict("os.environ", {"GROQ_API_KEY": ""}):
             with pytest.raises(SystemExit) as exc_info:
                 groq_prompt_scorer.main()
             assert exc_info.value.code == 0
+
+    def test_main_logs_debug_at_entry(self, tmp_path: Path) -> None:
+        debug_log = tmp_path / "debug.log"
+        with (
+            patch.object(groq_prompt_scorer, "DEBUG_LOG_FILE", debug_log),
+            patch.dict("os.environ", {"GROQ_API_KEY": ""}),
+            pytest.raises(SystemExit),
+        ):
+            groq_prompt_scorer.main()
+        content = debug_log.read_text()
+        assert "main_entry" in content
+
+    def test_main_logs_debug_with_stdin_payload(self, tmp_path: Path) -> None:
+        import io
+
+        debug_log = tmp_path / "debug.log"
+        stdin_payload = json.dumps({"prompt": "fix the bug in auth.py"})
+        mock_stdin = io.StringIO(stdin_payload)
+        with (
+            patch.object(groq_prompt_scorer, "DEBUG_LOG_FILE", debug_log),
+            patch.dict("os.environ", {"GROQ_API_KEY": "fake-key"}),
+            patch("sys.stdin", mock_stdin),
+            patch.object(groq_prompt_scorer, "classify_prompt", return_value={"verdict": "pass"}),
+            pytest.raises(SystemExit),
+        ):
+            groq_prompt_scorer.main()
+        content = debug_log.read_text()
+        assert "stdin_parsed" in content
+        assert "fix the bug" in content
+
+    def test_main_logs_debug_on_bypass(self, tmp_path: Path) -> None:
+        import io
+
+        debug_log = tmp_path / "debug.log"
+        stdin_payload = json.dumps({"prompt": "/commit"})
+        mock_stdin = io.StringIO(stdin_payload)
+        with (
+            patch.object(groq_prompt_scorer, "DEBUG_LOG_FILE", debug_log),
+            patch.dict("os.environ", {"GROQ_API_KEY": "fake-key"}),
+            patch("sys.stdin", mock_stdin),
+            pytest.raises(SystemExit),
+        ):
+            groq_prompt_scorer.main()
+        content = debug_log.read_text()
+        assert "bypass" in content
+
+    def test_main_parses_stdin_with_utf8_bom(self, tmp_path: Path) -> None:
+        import io
+
+        debug_log = tmp_path / "debug.log"
+        stdin_payload_with_bom = "\ufeff" + json.dumps({"prompt": "fix the bug in auth.py"})
+        mock_stdin = io.StringIO(stdin_payload_with_bom)
+        with (
+            patch.object(groq_prompt_scorer, "DEBUG_LOG_FILE", debug_log),
+            patch.dict("os.environ", {"GROQ_API_KEY": "fake-key"}),
+            patch("sys.stdin", mock_stdin),
+            patch.object(groq_prompt_scorer, "classify_prompt", return_value={"verdict": "pass"}),
+            pytest.raises(SystemExit),
+        ):
+            groq_prompt_scorer.main()
+        content = debug_log.read_text()
+        assert "stdin_parsed" in content
+        assert "fix the bug" in content
+        assert "exit_stdin_parse_failed" not in content
+
+    def test_main_parses_stdin_with_cp1252_mangled_bom(self, tmp_path: Path) -> None:
+        import io
+
+        debug_log = tmp_path / "debug.log"
+        cp1252_bom = "\u00ef\u00bb\u00bf"
+        stdin_payload_with_mangled_bom = cp1252_bom + json.dumps({"prompt": "fix the bug in auth.py"})
+        mock_stdin = io.StringIO(stdin_payload_with_mangled_bom)
+        with (
+            patch.object(groq_prompt_scorer, "DEBUG_LOG_FILE", debug_log),
+            patch.dict("os.environ", {"GROQ_API_KEY": "fake-key"}),
+            patch("sys.stdin", mock_stdin),
+            patch.object(groq_prompt_scorer, "classify_prompt", return_value={"verdict": "pass"}),
+            pytest.raises(SystemExit),
+        ):
+            groq_prompt_scorer.main()
+        content = debug_log.read_text()
+        assert "stdin_parsed" in content
+        assert "fix the bug" in content
+        assert "exit_stdin_parse_failed" not in content
