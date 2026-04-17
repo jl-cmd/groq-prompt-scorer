@@ -1,12 +1,22 @@
-# Bugbot Review Rules
+<!-- SYNC-HEADER-START -->
+<!--
+AUTO-GENERATED — DO NOT EDIT.
+Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
+Synced by: .github/workflows/sync-ai-rules.yml
+Source commit: unknown
+Synced at: 2026-04-17T11:09:13.781281+00:00
+-->
+<!-- SYNC-HEADER-END -->
+
+# Code Review Instructions for Copilot
 
 Review every change against these rules. Flag each violation with its rule name. Treat rules as mandatory standards; honor file-level exception markers where they appear.
 
 ## Comments
-- Flag every new inline comment (`#` or `//`) added to modified code; require self-documenting names instead.
+- Flag every new inline comment (`#` or `//`) added to modified **production** code; require self-documenting names.
 - Preserve every existing comment as-is; treat comments in the surrounding file as sacred.
-- Allow docstrings on new functions, methods, classes, or modules.
-- Allow `TODO:` comments on scaffolding or placeholder code (see Design — Scaffolding).
+- Allow docstrings on new functions, methods, classes, or modules (including module-level docstrings).
+- **Test files (`test_*.py`, `*_test.py`, `*.test.*`, `*.spec.*`) are fully exempt** — comments and docstrings inside test functions are allowed.
 - Exempt markers: shebangs, `# type:`, `# noqa`, `// eslint-...`.
 
 ## Naming
@@ -21,56 +31,37 @@ Review every change against these rules. Flag each violation with its rule name.
 - Flag banned function-name prefixes: `handle`, `process`, `manage`, `do`.
 - Require component names that describe what the component is (`Overlay` for `Screen`, `Validator` for `Handler`).
 
-## Magic Values and Configuration
-- Require named constants for numeric, string, and boolean literals in function bodies; exempt `0`, `1`, `-1`, empty string, and `True`/`False` where the meaning is obvious.
-- Treat structural fragments inside f-strings (paths, URLs, query patterns, regex) as magic values; require extraction to a named constant.
-- Require `UPPER_SNAKE_CASE` constants to live in `config/` (`config/timing.py`, `config/constants.py`, `config/selectors.py`); flag definitions located elsewhere.
-- Require a search of existing `config/` files for reuse before adding any new constant.
+## Magic values and configuration
+- Require named constants for numeric, string, and boolean literals in **production** function bodies; exempt `0`, `1`, `-1`, empty string, and `True`/`False` where the meaning is obvious.
+- **Test files are exempt** — inline literals in test functions and test-local constants are allowed.
+- Treat structural fragments inside f-strings (paths, URLs, query patterns, regex) as magic values in production code; require extraction to a named constant.
+- Require `UPPER_SNAKE_CASE` constants in **production code** to live in `config/` (`config/timing.py`, `config/constants.py`, `config/selectors.py`); flag definitions located elsewhere. Test files may define local constants without using `config/`.
+- Require a search of existing `config/` files for reuse before adding any new production constant.
 
 ## Types
 - Require type hints on all function parameters and return values; flag missing hints.
 - Flag `Any`, `any`, and `# type: ignore` when the diff lacks a justifying note.
-- Flag bare `object` used as an escape hatch in place of a proper type.
 
 ## Structure
-- Flag files over 400 lines (hard limit); this is hook-enforced and non-negotiable.
+- Flag files over 1000 lines; note files over 400 lines as a soft smell.
 - Flag functions longer than 30 lines.
-- Require exactly 1 blank line between top-level functions (project convention); flag 2-blank-line separators.
+- Require top-level function spacing to follow the language and existing file convention; for Python, require the standard 2 blank lines between top-level functions, and do not flag 1-vs-2 blank-line differences in other file types unless the surrounding file clearly establishes a convention.
 - Require all `import` statements at the top of the file; flag imports inside function bodies.
-- Require logging calls for production output; flag `print()` in production code.
+- Require logging calls for application/runtime output; flag `print()` there, but allow `print()` in hook entrypoints and CLI tools when stdout is the integration contract (for example `print(json.dumps(...))`).
 - Require `%`-style arguments inside `log_*` / `logger.*` calls (`logger.info("msg %s", value)`); flag f-strings inside logging calls.
 
 ## Design
 - Favor functions over classes when state is absent; favor concrete classes over abstract base classes for single implementations; flag dependency-injection frameworks, single-type factories, and multi-level inheritance hierarchies.
 - Add optional parameters only when a caller actually varies the value (YAGNI).
 - Require construction logic (paths, URLs, formatting, transformations) to live inside model methods; flag the same string-building pattern duplicated across call sites.
-- Expose constants through helper functions rather than comparing raw constants at call sites (`is_max_level(level)` instead of `level >= MAXIMUM_LEVEL`).
 - Require self-contained components: each component owns its own state, modals, overlays, and toasts; parents render `<Child />` alone.
 - Reuse in-scope data; flag redundant fetches of the same record.
-- **Scaffolding**: Require a `TODO:` comment on scaffolding or placeholder code explaining what replaces it and why.
+- Require a `TODO:` comment on scaffolding or placeholder code explaining what replaces it and why.
 
 ## Tests
-### Paired coverage
-- Require a paired test in the same PR for every new production code path (TDD).
-- Flag duplicate tests that cover identical behavior already tested elsewhere in the file.
-
-### Mock completeness
+- Require a paired test in the same PR for every new production code path (BDD: agree behaviors first, then failing specification before production code).
 - Require mocks to include every field the code under test reads; flag partial mocks.
-- Mock only API/network boundaries; flag mocks of internal functions or hooks that could be tested with real implementations.
-
-### Value of tests
 - Flag tests that only assert a constant equals itself or that a symbol exists.
-- Flag tests that assert on internal state values (e.g., `component.state.isOpen`) rather than visible behavior (e.g., `screen.getByRole('dialog')`).
-- Flag snapshot tests on non-stable components; snapshots are only appropriate for design-system components and icons.
 
-### Test infrastructure
-- Flag test helper files split into multiple modules; test infrastructure must stay in a single file.
-- Flag skip decorators (`@skip_if_missing_dependency`, `pytest.mark.skip`, `xit`, `xdescribe`); missing dependencies must cause the test to **fail**, not silently skip.
-
-### React / Testing Library
-- Require Testing Library query priority: `getByRole` first, then `getByLabelText`, `getByText`; flag `getByTestId` unless no accessible query applies.
-- Require `userEvent` over `fireEvent` for interaction simulation.
-- Require `waitFor` or `findBy` queries after async actions; flag immediate assertions that race against async state updates.
-
-## Scope of Review
+## Scope of review
 - Apply these rules only to lines the PR adds or modifies; leave untouched code alone.
