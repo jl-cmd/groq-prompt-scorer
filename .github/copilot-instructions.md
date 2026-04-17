@@ -3,8 +3,8 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: unknown
-Synced at: 2026-04-17T16:52:57.902738+00:00
+Source commit: a5ef922c16541f9f6db8e20f04998c2d902c17d1
+Synced at: 2026-04-17T23:01:24.919862+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
@@ -17,7 +17,7 @@ Review every change against these rules. Flag each violation with its rule name.
 - Preserve every existing comment as-is; treat comments in the surrounding file as sacred.
 - Allow docstrings on new functions, methods, classes, or modules (including module-level docstrings).
 - **Test files (`test_*.py`, `*_test.py`, `*.test.*`, `*.spec.*`) are fully exempt** — comments and docstrings inside test functions are allowed.
-- Exempt markers: shebangs, `# type:`, `# noqa`, `// eslint-...`.
+- Exempt markers: shebangs, `# type:`, `# noqa`, `# pylint:`, `# pragma:`, `// @ts-...`, `// eslint-...`, `// prettier-...`, and `/// ` triple-slash reference directives.
 
 ## Naming
 - Require full words: `context` for `ctx`, `configuration` for `cfg`, `message` for `msg`, `button` for `btn`, `index` for `idx`, `count` for `cnt`, `element` for `elem`, `value` for `val`, `temporary_value` for `tmp`.
