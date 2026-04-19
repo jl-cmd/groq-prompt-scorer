@@ -3,8 +3,8 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: f966341ab6e99a8c7fa885186138a9b5d346eb6b
-Synced at: 2026-04-18T22:44:00.794640+00:00
+Source commit: 5ea5e501a536b2294536913302fe1a4fe5497bd8
+Synced at: 2026-04-19T09:39:32.246973+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
@@ -43,7 +43,7 @@ Review every change against these rules. Flag each violation with its rule name.
 
 ### File-Global Constants
 
-This rule extends the `constants-location` rule defined in `~/.claude/docs/CODE_RULES.md` — see the ⚡ HOOK-ENFORCED RULES table, Constants location row.
+This rule extends the `constants-location` rule defined in `~/.claude/docs/CODE_RULES.md` — see the ⚡ automation-enforced rules table, Constants location row.
 
 **file_global_constants_use_count:** Require every file-global constant (a module-level named constant declared at the top of a file (for example, an `UPPER_SNAKE_CASE` value assigned at module scope)) in **production code outside `config/`** to be referenced by at least two methods, functions, or classes in the same file — a reference counts only when the constant is actually consumed (compared, used in a decision, or passed into code that depends on its value), not when a method merely re-exports it (one class counts as a single reference regardless of how many methods inside it use the constant). Module-level usages outside any function, method, or class body also count as a reference. A default parameter value counts as one reference from the enclosing function. A constant used by exactly one method or class must have its value moved to `config/`, imported from `config/` at module scope, then bind a local alias inside the consuming method (or, when the sole consumer is a class, as a class attribute at class scope), OR inlined as a local constant inside the consuming method provided the value does not reintroduce a literal the magic-values rule would flag. When the sole reference is a module-level expression (for example, `ALL_ITEMS = build_registry(BATCH_SIZE)` at module scope), move the value to `config/` and reference the imported name directly at module scope; no local alias is needed.
 
