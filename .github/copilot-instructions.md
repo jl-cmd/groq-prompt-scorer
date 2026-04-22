@@ -3,16 +3,16 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: 437764edf964ee7a25c025dff00d5ce92eeee460
-Synced at: 2026-04-21T15:37:33.698722+00:00
+Source commit: 2c6d77d644b6c1491461312d0f14fa5e426d8fe8
+Synced at: 2026-04-22T10:34:42.235478+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
-# GitHub Copilot and automated PR review
+# Agent review and automated PR review
 
 This file is the **canonical** instruction set for:
 
-- **Copilot** when it reviews pull requests in this repository.
+- **Copilot**, **Claude**, **Cursor**, and other agent tooling that reads `AGENTS.md` when reviewing pull requests in this repository.
 - **BugBot** and any other automation that is configured to follow the same standards (for example synced copies such as `.cursor/BUGBOT.md` elsewhere—those files are downstream; edit **here** first).
 
 Part 1 is the **static rubric** (what to flag on the diff). Part 2 is the **end-to-end audit–fix loop**: always drive toward **convergence** (zero actionable findings on the current PR head)—run checks, audit the PR scope, fix what is real, repeat until converged or a safety cap. Use **one orchestrator** and **serial** audit and fix passes so each audit starts from fresh context.
