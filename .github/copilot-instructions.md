@@ -3,8 +3,8 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: cc8d263af6bc403e4915b6f65173750ed28901c0
-Synced at: 2026-04-23T20:29:59.444126+00:00
+Source commit: c13a05bbd1694459b25b1938156556f3456e3bc9
+Synced at: 2026-04-24T10:48:45.440497+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
@@ -139,6 +139,8 @@ def is_retry_limit_reached(attempt_count: int) -> bool:
 ### Design
 
 - Favor functions over classes when state is absent; favor concrete classes over abstract base classes for single implementations; flag dependency-injection frameworks, single-type factories, and multi-level inheritance hierarchies.
+- Require Single Responsibility (SOLID: **S**) for every new function, class, and module: one reason to change. Flag cohesive code split for line-count aesthetics rather than distinct change reasons (for example, a cohesive 80-line class broken into four 20-line classes "because SRP").
+- Apply Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion (SOLID: **O / L / I / D**) only when two or more concrete implementations already exist or are imminent. Flag new interfaces, ABCs, abstract factories, or dependency-injection scaffolding introduced to satisfy SOLID when a single concrete implementation covers the use case (same guard as the `abstract base classes for single implementations` flag above). Full reconciliation with right-sized engineering: `~/.claude/docs/CODE_RULES.md` §7.5.
 - Add optional parameters only when a caller actually varies the value (YAGNI).
 - Require construction logic (paths, URLs, formatting, transformations) to live inside model methods; flag the same string-building pattern duplicated across call sites.
 - Require self-contained components: each component owns its own state, modals, overlays, and toasts; parents render `<Child />` alone.
