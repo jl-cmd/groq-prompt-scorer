@@ -3,8 +3,8 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: a3eb84da96820f51bbe740bd3668a8d861ca9e82
-Synced at: 2026-05-02T00:05:24.113898+00:00
+Source commit: af852b96d48dea31e24b338c603d2270df9372c1
+Synced at: 2026-05-02T14:47:24.398122+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
@@ -97,7 +97,7 @@ Full rule including the decision table, examples, and reference-counting details
 
 ### Structure
 
-- File length is advisory: a soft note above ~400 lines, a stronger note above ~1000 lines. The file's role (migrations, generated code, registries, large fixtures) justifies any size.
+- File length is advisory (stderr only): a soft note above ~400 lines, a stronger note above ~1000 lines. The file's role (migrations, generated code, registries, large fixtures) justifies any size.
 - Functions stay at 30 lines or fewer. If it's longer, flag as advisory ONLY.
 - Top-level functions follow the language's blank-line convention: Python uses two blank lines between top-level functions. Other languages defer to file-established convention.
 - `import` statements live at the top of the file.
