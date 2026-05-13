@@ -3,8 +3,8 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: 048bfd68f3d463132e7dbad53b8c6bb44948db78
-Synced at: 2026-05-10T20:11:58.887386+00:00
+Source commit: 202e10fa40fd4c8f278a09996031e57aa513ea85
+Synced at: 2026-05-13T23:31:28.615900+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
@@ -189,5 +189,5 @@ The table lists **where the rule is encoded** (the script or module that impleme
 | Stub bodies (`pass` / `...` / `raise NotImplementedError`) in non-abstract production functions | `code_rules_enforcer.py::check_stub_implementations` (Python) |
 | `TypedDict` declarations require companion `_encode_*` / `_decode_*` functions in same module | `code_rules_enforcer.py::check_typed_dict_encode_decode` (Python) |
 | Test-mode branching (reading `TESTING`, `PYTEST_CURRENT_TEST`, `IS_TEST`) in production | `code_rules_enforcer.py::check_test_branching_in_production` (Python) |
-| Thin wrapper modules (imports + `__all__` only, outside `__init__.py`) | `code_rules_enforcer.py::check_thin_wrapper_files` (Python) |
+| Thin wrapper modules (imports only, optionally with `__all__`, outside `__init__.py`) | `code_rules_enforcer.py::check_thin_wrapper_files` (Python) |
 | Public functions missing Google-style `Args:` / `Returns:` / `Raises:` when warranted | `code_rules_enforcer.py::check_docstring_format` (Python) |
