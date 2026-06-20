@@ -3,8 +3,8 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: 92010e18ecca8a4220d83e3981a31044f448ecda
-Synced at: 2026-06-19T20:19:40.427769+00:00
+Source commit: ed93f104800eec3506de987b56e3b9b336310d6d
+Synced at: 2026-06-20T18:15:09.554822+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
@@ -105,7 +105,7 @@ Full rule including the decision table, examples, and reference-counting details
 
 - Function parameters and return values carry type annotations.
 - Python `# type: ignore` directives carry a second trailing `#` comment with ≥5 characters of justification (e.g. `# type: ignore[misc]  # stubs missing in foo library`). Plain trailing text without a leading `#` does not satisfy the rule. The trailing reason comment is part of the directive and exempt from the comment-preservation rule.
-- `Any` (Python) and `any` (TypeScript/JavaScript) annotations are findings — author should replace with an explicit type. Hook-enforced for Python: `from typing import Any`, `cast()`, and inline `Any` are blocked outside `__init__.py`, `protocols.py`, `types.py`, and `conftest.py`.
+- `Any` (Python) and `any` (TypeScript/JavaScript) annotations are findings — author should replace with an explicit type. Hook-enforced for Python: `from typing import Any`, `cast()`, inline `Any`, and a positional/keyword parameter typed bare `object` whose body reads `param.attribute` are blocked outside `__init__.py`, `protocols.py`, `types.py`, and `conftest.py`. A parameter typed `object` the body never dereferences (identity-only use) is honest and not flagged; `*args: object` and `**kwargs: object` are out of scope because the binding is a concrete `tuple`/`dict`.
 - `Any` appearing in function signatures (parameters, return types) or class attribute annotations is blocked even when nested inside a generic (`dict[str, Any]`, `list[Any]`, `Callable[..., Any]`). Local variable annotations are exempt.
 - Concrete types match the value's actual shape.
 - Exception handlers name the specific exception class. `except:`, `except Exception:`, and `except BaseException:` are blocked in production — name the failure mode you intend to handle. Tuple form (`except (ValueError, KeyError):`) is fine.
@@ -184,7 +184,7 @@ The table lists **where the rule is encoded** (the script or module that impleme
 | `git --no-verify`, `git --no-gpg-sign`, `git -c commit.gpgsign=false` blocked | `destructive_command_blocker.py` (PreToolUse Bash chain) |
 | Banned identifiers (`ctx`, `cfg`, `msg`, `btn`, `idx`, `cnt`, `tmp`, `elem`, `val`) in production | `code_rules_enforcer.py::check_banned_identifiers` (Python) |
 | Banned function name prefixes (`handle_`, `process_`, `manage_`, `do_`) in production | `code_rules_enforcer.py::check_banned_prefixes` (Python) |
-| Type escape hatches (`from typing import Any`, `cast()`, inline `Any`) in production | `code_rules_enforcer.py::check_type_escape_hatches` (Python; exempts `__init__.py`, `protocols.py`, `types.py`, `conftest.py`) |
+| Type escape hatches (`from typing import Any`, `cast()`, inline `Any`, parameter typed bare `object` whose body reads `param.attribute`) in production | `code_rules_enforcer.py::check_type_escape_hatches` (Python; exempts `__init__.py`, `protocols.py`, `types.py`, `conftest.py`) |
 | Bare `except:` / `except Exception:` / `except BaseException:` in production | `code_rules_enforcer.py::check_bare_except` (Python) |
 | `Any` in function signatures or class attribute annotations (boundary types) | `code_rules_enforcer.py::check_boundary_types` (Python; exempts `protocols.py`, `types.py`) |
 | Stub bodies (`pass` / `...` / `raise NotImplementedError`) in non-abstract production functions | `code_rules_enforcer.py::check_stub_implementations` (Python) |
