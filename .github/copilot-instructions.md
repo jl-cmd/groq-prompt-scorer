@@ -3,8 +3,8 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: ed93f104800eec3506de987b56e3b9b336310d6d
-Synced at: 2026-06-20T18:15:09.554822+00:00
+Source commit: 433d663de0e4bc90199ce11c896b4b33d2929446
+Synced at: 2026-06-21T14:09:47.742708+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
@@ -193,4 +193,5 @@ The table lists **where the rule is encoded** (the script or module that impleme
 | Thin wrapper modules (imports only, optionally with `__all__`, outside `__init__.py`) | `code_rules_enforcer.py::check_thin_wrapper_files` (Python) |
 | Zero-payload function aliases (body is only `return sibling(params...)` forwarding its own params unchanged, same module, no decorator/default/async mismatch, outside test/config) | `code_rules_enforcer.py::check_zero_payload_function_alias` (Python) |
 | Public functions missing Google-style `Args:` / `Returns:` / `Raises:` when warranted | `code_rules_enforcer.py::check_docstring_format` (Python) |
+| Module docstring asserting "no literals appear inline" (or a like completeness claim) about a companion file — an unverifiable claim that drifts the moment a literal lands inline | `code_rules_enforcer.py::check_docstring_no_inline_literal_claim` (Python) |
 | Per-directory `CLAUDE.md` table first-column cell naming a backticked bare filename absent from the directory subtree | `claude_md_orphan_file_blocker.py` (PreToolUse Write\|Edit\|MultiEdit) |
