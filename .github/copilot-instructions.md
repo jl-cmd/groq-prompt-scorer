@@ -3,8 +3,8 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: ea5f7b3df4fee55adc0312950f380b1e98fdcc8f
-Synced at: 2026-06-25T15:58:42.207558+00:00
+Source commit: e8e4fedb996c84fb8ede93784473d8c30002d6a0
+Synced at: 2026-07-03T18:38:17.602941+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
@@ -195,5 +195,6 @@ The table lists **where the rule is encoded** (the script or module that impleme
 | Thin wrapper modules (imports only, optionally with `__all__`, outside `__init__.py`) | `code_rules_enforcer.py::check_thin_wrapper_files` (Python) |
 | Zero-payload function aliases (body is only `return sibling(params...)` forwarding its own params unchanged, same module, no decorator/default/async mismatch, outside test/config) | `code_rules_enforcer.py::check_zero_payload_function_alias` (Python) |
 | Public functions missing Google-style `Args:` / `Returns:` / `Raises:` when warranted | `code_rules_enforcer.py::check_docstring_format` (Python) |
+| A module / class / public-function docstring narrative that runs a wall of prose (more than six lines) with no `::` example block or doctest to show the behavior | `code_rules_enforcer.py::check_docstring_prose_wall_without_illustration` (Python; Category O9 audit carries the judgment of whether the diagram illustrates well) |
 | Module docstring asserting "no literals appear inline" (or a like completeness claim) about a companion file — an unverifiable claim that drifts the moment a literal lands inline | `code_rules_enforcer.py::check_docstring_no_inline_literal_claim` (Python) |
 | Per-directory `CLAUDE.md` table first-column cell naming a backticked bare filename absent from the directory subtree | `claude_md_orphan_file_blocker.py` (PreToolUse Write\|Edit\|MultiEdit) |
