@@ -3,8 +3,8 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: e8e4fedb996c84fb8ede93784473d8c30002d6a0
-Synced at: 2026-07-03T18:38:17.602941+00:00
+Source commit: f1c153d87f94dc0f79e4d685e16bd264be7c9cdc
+Synced at: 2026-07-11T21:46:04.020930+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
@@ -101,6 +101,10 @@ For every file-global constant declared at module scope in production code outsi
 
 Full rule including the decision table, examples, and reference-counting details: [`packages/claude-dev-env/rules/file-global-constants.md`](packages/claude-dev-env/rules/file-global-constants.md).
 
+#### Dead scaffolding in test modules
+
+Test files are exempt from the file-global-constants rule above, yet a test module still carries dead code an edit strands. A test file exports nothing, so a single-file scan settles it. Flag a private module-level constant (such as `_ABSENT_DOTENV_FILENAME`) that no other line in the test file reads. Flag a parameter on a private, non-fixture test helper (such as `_configuration(monkeypatch, tmp_path)`) that the helper's own body never reads. A pytest fixture parameter and a public `test_*` function parameter are injected by name and stay exempt. Enforced at Write/Edit time by `check_dead_test_module_constant` and `check_unused_test_helper_parameter` in `packages/claude-dev-env/hooks/blocking/code_rules_test_layout.py`.
+
 ### Types
 
 - Function parameters and return values carry type annotations.
@@ -159,6 +163,7 @@ Full rule including the decision table, examples, and reference-counting details
   - Helper files created to work around a tool limitation that the PR did not explicitly call out.
   - Any file the PR description does not reference and that a reviewer cannot trace to one of the listed changes.
 - In a per-directory `CLAUDE.md`, every backticked bare filename in a markdown table's first column names a file that exists in the directory subtree the `CLAUDE.md` describes (the directory, its subdirectories, or its siblings under the parent). A first-column cell naming a file that exists nowhere under that scan root points the reader at something that is not there — drop the row or correct the cell to name an existing file. Cells that hold a path, a subdirectory ending in `/`, or a slash-command are out of scope, as is a table whose content names an explicit relative-path source (a `../` token).
+- In a `.md` file, cut a sentence whose only job is to say why a stated choice is good, or to restate a gain a reader already works out from the behavior the doc states or from a rule a hook or another file enforces. A sentence like that carries no fact the reader acts on. Keep a rule's one-line reason when it names present behavior (`--jq` runs per page, so cross-page sorts give wrong results); flag a trailing sentence that only re-argues or restates a fact the doc already states. This finding is distinct from the historical-clutter finding (old-state references), the self-contained-docs finding (references to the chat that produced the doc), and the plain-language finding (heavy words): it targets a present-tense sentence that adds no actionable fact. Full rule: [`packages/claude-dev-env/rules/no-justification-noise.md`](packages/claude-dev-env/rules/no-justification-noise.md).
 
 ### Scope of review
 
