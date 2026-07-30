@@ -3,8 +3,8 @@
 AUTO-GENERATED — DO NOT EDIT.
 Source of truth: jl-cmd/claude-code-config/.github/copilot-instructions.md
 Synced by: .github/workflows/sync-ai-rules.yml
-Source commit: f504b9fce5cd8e91b232b355a60d6fd1d95a654b
-Synced at: 2026-07-28T18:12:10.753492+00:00
+Source commit: c5d6d8f9ddca2e156c45da24b4d210d17a1da278
+Synced at: 2026-07-30T14:45:26.743897+00:00
 -->
 <!-- SYNC-HEADER-END -->
 
@@ -22,6 +22,8 @@ These rules describe the green-light state of code in this repository. Agents ap
 Where a rule lists exemptions (test files, migrations, config files), the exemption applies. Where a rule shows a before/after pair, the "after" form is the green-light pattern.
 
 This file is **rules-only**. Repo layout, build commands, and workflow guidance live elsewhere.
+
+**Surface map:** this file is the canonical human and AI **code-quality** review contract. `packages/claude-dev-env/docs/CODE_RULES.md` is its compact projection. `packages/claude-dev-env/hooks/blocking/code_rules_enforcer.py` is hand-maintained production enforcement (not generated from this file). `.cursor/BUGBOT.md` is a sync projection of this file. Session policies (question routing, task tracking) live under `packages/claude-dev-env/rules/` — see `rules/code-standards.md`.
 
 ---
 
